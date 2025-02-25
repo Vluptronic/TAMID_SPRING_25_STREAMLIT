@@ -34,3 +34,18 @@ class Seq2SeqModel:
             res += self.generate(self.memory[i]) + "\n"
         
         return res
+
+
+class app:
+
+    def __init__ (self):
+        self.model = Seq2SeqModel()
+
+    def run(self):
+        q = input("Enter a question")
+        res = self.model.generate(q)
+        print(res)
+
+if __name__ == "__main__":
+        my_app = app()
+        my_app.run()
