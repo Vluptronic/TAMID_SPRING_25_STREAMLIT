@@ -8,8 +8,8 @@ class Seq2SeqModel:
 
     def __init__(self):
 
-        self.model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-xxl")
-        self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-xxl", use_fast = True)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large")
+        self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large", use_fast = True)
         self.memory = np.array([]) # ts (this) memory is kinda butt but works
 
     def generate(self, q: str) -> str:
