@@ -10,7 +10,7 @@ tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
 
 # 2. Load LoRA-adapted model
 print("Loading LoRA adapters...")
-model = PeftModel.from_pretrained(base_model, "my_lora_out")
+model = PeftModel.from_pretrained(base_model, "my_lora_finetuned")
 
 class Seq2SeqModel:
     def __init__(self):
