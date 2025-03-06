@@ -44,7 +44,7 @@ class app:
     def run(self):
         q = input("Enter a question")
         res = self.model.generate(q)
-        print(res)
+        print(res) 
 
 if __name__ == "__main__":
         my_app = app()

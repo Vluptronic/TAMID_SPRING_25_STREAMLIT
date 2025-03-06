@@ -1,8 +1,9 @@
-from datasets import load_dataset
+from datasets import load_dataset,DatasetDict
 
 # Load dataset from Hugging Face
 dataset = load_dataset("jimwang99/TinyStoriesV2-Tokenized")
 dataset.cleanup_cache_files()
+
 # Select the tokenized input-output pairs
 def preprocess_function(example):
     max_length = 176
@@ -11,7 +12,6 @@ def preprocess_function(example):
     input_ids += [0] * (max_length - len(input_ids))
 
     attention_mask = [1]*len(input_ids)
-    # Extend with 0's to length 176 if needed
     attention_mask += [0]*(max_length - len(attention_mask))
 
     labels = example["sentencepiece_tok32k"][:max_length]
@@ -27,20 +27,32 @@ def preprocess_function(example):
         "decoder_input_ids": decoder_input_ids
     }
 
-
-# Apply strict mapping
+# Apply mapping
 tokenized_dataset = dataset.map(
     preprocess_function,
     batched=False,
     remove_columns=dataset["train"].column_names
 )
 
+# 1. Access the train split (which is a Dataset)
+train_split = tokenized_dataset["train"]   # This is a Dataset
 
+# 2. Shuffle that single Dataset
+shuffled_train = train_split.shuffle(seed=42)
+
+# 3. Select the subset of that single Dataset
+small_train_dataset = shuffled_train.select(range(100000))  # Use 100k samples
+valid_subset=shuffled_train.select(range(100000,110000))
+
+# Wrap it back into a DatasetDict to maintain the "train" split
+tokenized_dataset = DatasetDict({"train": small_train_dataset,
+                                 "validation": valid_subset})
+
+# ✅ Now you can safely access tokenized_dataset["train"]
 sample = tokenized_dataset["train"][0]
 print(f"Input Length: {len(sample['input_ids'])}")
 print(f"Label Length: {len(sample['labels'])}")
 print(f"Attention Mask Length: {len(sample['attention_mask'])}")
-
 import torch
 from transformers import AutoModelForSeq2SeqLM, Trainer, TrainingArguments, AutoTokenizer
 from peft import LoraConfig, get_peft_model, TaskType
@@ -68,6 +80,10 @@ peft_model.print_trainable_parameters()
 # Training setup
 training_args = TrainingArguments(
     output_dir="my_lora_finetuned",
+    save_strategy = "epoch",
+    evaluation_strategy="epoch",
+    save_total_limit=1,
+    load_best_model_at_end=True,
     per_device_train_batch_size=8,
     lr_scheduler_type="linear",
     gradient_accumulation_steps=2,
@@ -86,6 +102,7 @@ trainer = Trainer(
     model=peft_model,
     args=training_args,
     train_dataset=tokenized_dataset["train"],
+    eval_dataset=tokenized_dataset["validation"],  
     data_collator=data_collator  # Fixes inconsistent batch sizes
 )
 
