@@ -11,6 +11,7 @@ tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
 # 2. Load LoRA-adapted model
 print("Loading LoRA adapters...")
 model = PeftModel.from_pretrained(base_model, "my_lora_finetuned")
+model.eval()
 
 class Seq2SeqModel:
     def __init__(self):
@@ -18,29 +19,29 @@ class Seq2SeqModel:
         self.model = model
         self.tokenizer = tokenizer
         self.memory = []  # Use list instead of NumPy array
+        self.history = []  # ✅ Add history attribute to store user inputs and responses
 
     def generate(self, q: str) -> str:
-        """Generate response based on query + memory context"""
+    #Generate response based only on the user's query.
+
         print(f"Generating response for: {q}")
-        context = self.get_memories()
 
-        # Tokenize the input
-        inputs = self.tokenizer(f"{context}\n{q}", return_tensors="pt")
-        
-        # Generate response
-        outputs = self.model.generate(**inputs)
-        res = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Tokenize and move input to model device
+        inputs = self.tokenizer(q, return_tensors="pt").to(self.model.device)
 
-        # Store embeddings for memory
-        with torch.no_grad():
-            embeddings = self.model.get_encoder()(**inputs).last_hidden_state
-            self.memory.append(embeddings.cpu().numpy())  # Store as NumPy array
+        # Generate response with proper settings
+        outputs = self.model.generate(
+            **inputs, 
+            max_length=100,  # Keep it concise
+            do_sample=True,  # More diverse outputs
+            top_k=50,        # Avoid deterministic responses
+            top_p=0.9        # Nucleus sampling
+        )
 
-        return res
+        # Decode the response properly
+        res = self.tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
 
-    def get_memories(self) -> str:
-        """Retrieve memory embeddings as text representation"""
-        return "\n".join(["[Stored Embedding]" for _ in self.memory])  # Avoid recursion
+        return res if res.strip() else "[No Response]"
 
 class App:
     def __init__(self):
